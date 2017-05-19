@@ -1,0 +1,5 @@
+Currently using my old colortool as a template. Planning on expanding the 2d texture window to the entire canvas and hijacking the data stream.
+
+Need to figure out how the rendering for the brain part works and hijack it.
+Leads? 
+From what I remember it loads the texture as soon as the file is loaded. Try removing the current file to see if it causes an error then trace the error.
