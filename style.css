@@ -115,8 +115,8 @@ select{
 	text-align: center;
 	color: white;
 	position: absolute;
-	width:100px;
-	height: 50px;
+	width:10px;
+	height: 10px;
 }
 .button:hover{
 	outline: 2px solid white;

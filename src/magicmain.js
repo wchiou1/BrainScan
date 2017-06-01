@@ -18,7 +18,7 @@
 
 
 
-function MagicMain(brain_pattern)
+function MagicMain(brain_pattern,regions)
 {
 	console.log(brain_pattern)
 	var
@@ -65,7 +65,6 @@ function MagicMain(brain_pattern)
 
 		loaded = false,
 
-
 		life = new LifeUniverse(),
 		drawer = new LifeCanvasDrawer(),
 
@@ -73,12 +72,11 @@ function MagicMain(brain_pattern)
 		// loaded from examples/
 		/** @type {Array.<string>} */
 		examples = (
-			"turingmachine,Turing Machine|gunstar,Gunstar|hacksaw,Hacksaw|tetheredrake,Tethered rake|" +
-			"primer,Primer|infinitegliderhotel,Infinite glider hotel|" +
-			"p94s,P94S|breeder1,Breeder 1|tlogtgrowth,tlog(t) growth|" +
-			"logt2growth,Log(t)^2 growth|infinitelwsshotel,Infinite LWSS hotel|c5greyship,c/5 greyship"
+			"primer,1"
 		).split("|");
 
+		//Setup the 4d array which will contain what regions are where
+		drawer.setupRegions(brain_pattern,regions);
 
 
 /** @type {function(function())} */
@@ -109,7 +107,7 @@ var nextFrame =
 
 	init_ui();
 
-	drawer.set_size(window.innerWidth-30, window.innerHeight-30);
+	drawer.set_size(window.innerWidth-2, window.innerHeight-2);
 	reset_settings();
 
 

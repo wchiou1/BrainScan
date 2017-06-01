@@ -3,4 +3,12 @@ Using hashlife renderer to render the brain. Need to find where the parser is fo
 The key is fill_square.
 Seems the offset isn't working right... fix it.[DONE]
 
-Check if the brain is supposed to have holes, check other nifti files.
+Check if the brain is supposed to have holes, check other nifti files.[FIXED]
+
+We need a way to find if a part exists on a 2d coordinate.
+Iterate through all the coordinates, keep the i and j coordinate constant.
+Have a buffer array, for each element which is different, push it to the array.
+Store the array in the coresponding i and j coordinate on this new ndarray.
+
+Filtered brain regions by point is fully functional. Next step is to average out the location of all the brain regions and create buttons in those locations.
+

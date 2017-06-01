@@ -24,11 +24,16 @@ function LifeCanvasDrawer()
         // in pixels
         border_width,
         cell_color_rgb,
+		selected_color_rgb,
+		
+		brain_regions,
+		selected_region = 1,
+		region_averages = new Array(130),
 
         drawer = this;
 
-
     this.cell_color = null;
+	this.selected_color = "#ffffff";
     this.background_color = null;
 
     // given as ratio of cell size
@@ -46,8 +51,55 @@ function LifeCanvasDrawer()
     this.center_view = center_view;
     this.zoom_to = zoom_to;
     this.pixel2cell = pixel2cell;
-
-
+	this.setupRegions = setupRegions;
+	//This creates an ndarray which changes the 3 dimension to the types of regions that exist
+	function setupRegions(brain_pattern,regions){
+		var buffer=[];
+		//Iterate through all i and j coordinates
+		for(var i=0; i<brain_pattern.shape[2]; ++i) {
+			for(var j=0; j<brain_pattern.shape[3]; ++j) {
+				buffer=[];
+				//We have the coordinates, iterate through the depth
+				for(var x=0; x<brain_pattern.shape[1];x++){
+					//If the value at the depth we are at exists in the buffer, skip
+					var region_value = brain_pattern.get(0,x,i,j);
+					if(!buffer.includes(region_value))
+						buffer.push(region_value);
+					
+				}
+				//We have the buffer, let's insert it into the ndarray
+				//console.log(buffer);
+				regions.set(i,j,buffer);
+			}
+		}
+		brain_regions=regions;
+		//We have the region data, now let's get the region average data
+		for(var i=0;i<130;i++){
+			region_averages[i]=getRegionAverage(i+1);
+		}
+		//Testing getting regions from a coordinates
+		console.log(brain_regions.get(100,100).includes(63));
+	}
+	//Given a region number, returns a coordinate object which contains x and y
+	function getRegionAverage(regionNum){
+		var xTotal=0;
+		var yTotal=0;
+		var count=0;
+		//We want to iterate through all coordinates and average which ones contain our region
+		for(var x=0;x<brain_regions.shape[0];x++){
+			for(var y=0;y<brain_regions.shape[1];y++){
+				//If it contains our region, add the x and y to the total
+				if(brain_regions.get(x,y).includes(regionNum)){
+					//It contains our region!
+					count++;//Increase the count so we can average
+					xTotal=xTotal+x;
+					yTotal=yTotal+y;
+				}
+			}
+		}
+		//We have our totals, average it out, pack it into an object and return
+		return {x:(xTotal/count), y:(yTotal/count)};
+	}
 
     function init(dom_parent)
     {
@@ -127,7 +179,7 @@ function LifeCanvasDrawer()
         }
     }
 
-    function fill_square(x, y, size)
+    function fill_square(x, y, size, selected)
     {
         var width = size - border_width,
             height = width;
@@ -161,9 +213,11 @@ function LifeCanvasDrawer()
 
         var pointer = x + y * canvas_width,
             row_width = canvas_width - width;
-
-        //console.assert(x >= 0 && y >= 0 && x + width <= canvas_width && y + height <= canvas_height);
-        var color = cell_color_rgb.r | cell_color_rgb.g << 8 | cell_color_rgb.b << 16 | 0xFF << 24;
+		var color;
+		if(selected)
+			color = selected_color_rgb.r | selected_color_rgb.g << 8 | selected_color_rgb.b << 16 | 0xFF << 24;
+        else
+			color = cell_color_rgb.r | cell_color_rgb.g << 8 | cell_color_rgb.b << 16 | 0xFF << 24;
 
         for(var i = 0; i < height; i++)
         {
@@ -186,6 +240,7 @@ function LifeCanvasDrawer()
 
         border_width = drawer.border_width * drawer.cell_width | 0;
         cell_color_rgb = color2rgb(drawer.cell_color);
+		selected_color_rgb = color2rgb(drawer.selected_color)
 
         var count = canvas_width * canvas_height;
 
@@ -202,18 +257,14 @@ function LifeCanvasDrawer()
 			for(var j=0; j<brain_pattern.shape[3]; ++j) {
 				var test = brain_pattern.get(0,slice_i,i,j);
 				if(test!=0){
-					fill_square(i*drawer.cell_width + canvas_offset_x,j*drawer.cell_width + canvas_offset_y, drawer.cell_width);
-					
+					//Test if it contains the selected region
+					if(brain_regions.get(i,j).includes(selected_region))
+						fill_square(i*drawer.cell_width + canvas_offset_x,j*drawer.cell_width + canvas_offset_y, drawer.cell_width, true);
+					else
+						fill_square(i*drawer.cell_width + canvas_offset_x,j*drawer.cell_width + canvas_offset_y, drawer.cell_width);
 				}
 			}
 		}
-		fill_square(1000*drawer.cell_width + canvas_offset_x,1000*drawer.cell_width + canvas_offset_y, drawer.cell_width*10);
-        //var size = Math.pow(2, node.level - 1) * drawer.cell_width;
-
-		
-		//fill_square(11*drawer.cell_width + canvas_offset_x,100*drawer.cell_width + canvas_offset_y, drawer.cell_width);
-        //draw_node(node, 2 * size, -size, -size);
-
         context.putImageData(image_data, 0, 0);
     }
 
