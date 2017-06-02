@@ -213,31 +213,36 @@ function MagicMain(brain_pattern,regions)
 		max_fps = +parameters["fps"];
 	}
 
-	setupButton();
-	FileListenerInit();
+	EventsInit();
 
 	//Functions
-	function setupButton(){
-		var resetbutton = document.getElementById("button4");
-		resetbutton.style.left = 30+"px";
-		resetbutton.style.top = 110+"px";
-	}
 
-	function FileListenerInit(){
-		if(window.FileReader) {
-				var button4 = document.getElementById('button4');
-
-				function cancel(e) {
-				   e.preventDefault(); 
-				}
-				addEventHandler(button4,'click',function(){handleResetButton(drawer);});
-		} else {
-		  alert('Your browser does not support the HTML5 FileReader.');
+	function EventsInit(){
+		//Get the averages from the drawer
+		console.log("Chicken");
+		console.log(drawer.region_averages.length);
+		
+		//Iterate through them(130)
+		for(var i=0;i<drawer.region_averages.length;i++){
+			//First check if the average even exists
+			if(!isNaN(drawer.region_averages[i].x)||!isNaN(drawer.region_averages[i].y)){
+				var div = document.createElement("div");
+				div.className="button";
+				div.id="button"+(i+1);
+				document.getElementById("buttons").appendChild(div);
+				console.log(i+1);
+				let temp_var = i;
+				addEventHandler(div,'click',function(){handleResetButton(drawer,temp_var+1);});
+			}
 		}
+
+		function cancel(e) {
+		   e.preventDefault(); 
+		}
+		
 	}
-	function handleResetButton(drawer){
-		//Change the selected region(increment by one)
-		drawer.changeSelectedRegion(++drawer.selected_region);
+	function handleResetButton(drawer,region_num){
+		drawer.changeSelectedRegion(region_num);
 	}
 	function addEventHandler(obj, evt, handler) {
 		if(obj.addEventListener) {

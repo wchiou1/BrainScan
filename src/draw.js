@@ -27,7 +27,6 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 		selected_color_rgb,
 		
 		brain_regions,
-		region_averages = new Array(130),
 		
 		//Data
 		node = arg_life,
@@ -40,6 +39,7 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 	this.selected_color = "#ffffff";
     this.background_color = null;
 	this.selected_region=1;
+	this.region_averages = new Array(130);
 
     // given as ratio of cell size
     this.border_width = 0;
@@ -59,10 +59,11 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 	this.setupRegions = setupRegions;
 	this.changeSelectedRegion=changeSelectedRegion;
 	
+	
 	function changeSelectedRegion(regionNum){
 		drawer.selected_region=regionNum;
 		console.log(regionNum);
-		console.log(region_averages[regionNum-1]);
+		console.log(drawer.region_averages[regionNum-1]);
 		drawer.redraw();
 	}
 	
@@ -89,7 +90,7 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 		brain_regions=regions;
 		//We have the region data, now let's get the region average data
 		for(var i=0;i<130;i++){
-			region_averages[i]=getRegionAverage(i+1);
+			drawer.region_averages[i]=getRegionAverage(i+1);
 		}
 		//Testing getting regions from a coordinates
 		console.log(brain_regions.get(100,100).includes(63));
@@ -279,12 +280,25 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 			}
 		}
 		//Move the button to average location
-		region_averages[i]
-		var button4 = document.getElementById('button4');
-		button4.style.left = (region_averages[drawer.selected_region-1].x*drawer.cell_width + canvas_offset_x)+"px";
-		button4.style.top = (region_averages[drawer.selected_region-1].y*drawer.cell_width + canvas_offset_y)+"px";
-        context.putImageData(image_data, 0, 0);
+		
+		updateButtonLocs();
+		
+		context.putImageData(image_data, 0, 0);
     }
+	
+	function updateButtonLocs(){
+		
+		//Iterate through all the buttons?
+		var buttons = document.getElementById("buttons").childNodes;
+		for(var i=0;i<buttons.length;i++){
+			//Get the element ids
+			var but_location = drawer.region_averages[parseInt(buttons[i].id.split("button")[1])-1];
+			var current_button = buttons[i];
+			current_button.style.left = (but_location.x*drawer.cell_width + canvas_offset_x)+"px";
+			current_button.style.top = (but_location.y*drawer.cell_width + canvas_offset_y)+"px";
+			
+		}
+	}
 
     /**
      * @param {number} center_x
