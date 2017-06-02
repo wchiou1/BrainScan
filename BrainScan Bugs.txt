@@ -12,3 +12,5 @@ Store the array in the coresponding i and j coordinate on this new ndarray.
 
 Filtered brain regions by point is fully functional. Next step is to average out the location of all the brain regions and create buttons in those locations.
 
+We have the average, link it to the button we made.
+

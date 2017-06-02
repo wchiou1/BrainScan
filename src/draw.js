@@ -1,11 +1,11 @@
 "use strict";
 
 /** @constructor */
-function LifeCanvasDrawer()
+function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 {
 	
     var
-        // where is the viewport in pixels, from 0,0
+		// where is the viewport in pixels, from 0,0
         /** @type {number} */
         canvas_offset_x = 0,
         /** @type {number} */
@@ -27,14 +27,19 @@ function LifeCanvasDrawer()
 		selected_color_rgb,
 		
 		brain_regions,
-		selected_region = 1,
 		region_averages = new Array(130),
+		
+		//Data
+		node = arg_life,
+		brain_pattern=arg_brain_pattern,
+		regions=arg_regions,
 
         drawer = this;
 
     this.cell_color = null;
 	this.selected_color = "#ffffff";
     this.background_color = null;
+	this.selected_region=1;
 
     // given as ratio of cell size
     this.border_width = 0;
@@ -52,8 +57,17 @@ function LifeCanvasDrawer()
     this.zoom_to = zoom_to;
     this.pixel2cell = pixel2cell;
 	this.setupRegions = setupRegions;
+	this.changeSelectedRegion=changeSelectedRegion;
+	
+	function changeSelectedRegion(regionNum){
+		drawer.selected_region=regionNum;
+		console.log(regionNum);
+		console.log(region_averages[regionNum-1]);
+		drawer.redraw();
+	}
+	
 	//This creates an ndarray which changes the 3 dimension to the types of regions that exist
-	function setupRegions(brain_pattern,regions){
+	function setupRegions(){
 		var buffer=[];
 		//Iterate through all i and j coordinates
 		for(var i=0; i<brain_pattern.shape[2]; ++i) {
@@ -98,7 +112,7 @@ function LifeCanvasDrawer()
 			}
 		}
 		//We have our totals, average it out, pack it into an object and return
-		return {x:(xTotal/count), y:(yTotal/count)};
+		return {x:(Math.floor(xTotal/count)), y:(Math.floor(yTotal/count))};
 	}
 
     function init(dom_parent)
@@ -232,9 +246,9 @@ function LifeCanvasDrawer()
     }
 
 
-    function redraw(node,brain_pattern)
+    function redraw()
     {
-		//console.log(brain_pattern);
+		console.log(drawer.selected_region);
         var bg_color_rgb = color2rgb(drawer.background_color);
         var bg_color_int = bg_color_rgb.r | bg_color_rgb.g << 8 | bg_color_rgb.b << 16 | 0xFF << 24;
 
@@ -252,19 +266,23 @@ function LifeCanvasDrawer()
 		
 		//Draw a slice of the brain using brain_pattern
 		//first get the halfway point for the first dimension.
-		var slice_i = Math.round(brain_pattern.shape[1]/2);
 		for(var i=0; i<brain_pattern.shape[2]; ++i) {
 			for(var j=0; j<brain_pattern.shape[3]; ++j) {
-				var test = brain_pattern.get(0,slice_i,i,j);
-				if(test!=0){
+				var test = brain_regions.get(i,j).length;
+				if(test>1){
 					//Test if it contains the selected region
-					if(brain_regions.get(i,j).includes(selected_region))
+					if(brain_regions.get(i,j).includes(drawer.selected_region))
 						fill_square(i*drawer.cell_width + canvas_offset_x,j*drawer.cell_width + canvas_offset_y, drawer.cell_width, true);
 					else
 						fill_square(i*drawer.cell_width + canvas_offset_x,j*drawer.cell_width + canvas_offset_y, drawer.cell_width);
 				}
 			}
 		}
+		//Move the button to average location
+		region_averages[i]
+		var button4 = document.getElementById('button4');
+		button4.style.left = (region_averages[drawer.selected_region-1].x*drawer.cell_width + canvas_offset_x)+"px";
+		button4.style.top = (region_averages[drawer.selected_region-1].y*drawer.cell_width + canvas_offset_y)+"px";
         context.putImageData(image_data, 0, 0);
     }
 

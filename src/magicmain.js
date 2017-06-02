@@ -20,7 +20,6 @@
 
 function MagicMain(brain_pattern,regions)
 {
-	console.log(brain_pattern)
 	var
     /** @const */
     DEFAULT_BORDER = 0,
@@ -66,7 +65,7 @@ function MagicMain(brain_pattern,regions)
 		loaded = false,
 
 		life = new LifeUniverse(),
-		drawer = new LifeCanvasDrawer(),
+		drawer = new LifeCanvasDrawer(life,brain_pattern,regions),
 
 		// example setups which are run at startup
 		// loaded from examples/
@@ -77,14 +76,12 @@ function MagicMain(brain_pattern,regions)
 
 		//Setup the 4d array which will contain what regions are where
 		drawer.setupRegions(brain_pattern,regions);
-
-
-/** @type {function(function())} */
-var nextFrame =
-	window.requestAnimationFrame ||
-	window.webkitRequestAnimationFrame ||
-	window.mozRequestAnimationFrame ||
-	setTimeout;
+	/** @type {function(function())} */
+	var nextFrame =
+		window.requestAnimationFrame ||
+		window.webkitRequestAnimationFrame ||
+		window.mozRequestAnimationFrame ||
+		setTimeout;
 
     // setup
 	this.life=life;
@@ -216,8 +213,46 @@ var nextFrame =
 		max_fps = +parameters["fps"];
 	}
 
+	setupButton();
+	FileListenerInit();
 
+	//Functions
+	function setupButton(){
+		var resetbutton = document.getElementById("button4");
+		resetbutton.style.left = 30+"px";
+		resetbutton.style.top = 110+"px";
+	}
 
+	function FileListenerInit(){
+		if(window.FileReader) {
+				var button4 = document.getElementById('button4');
+
+				function cancel(e) {
+				   e.preventDefault(); 
+				}
+				addEventHandler(button4,'click',function(){handleResetButton(drawer);});
+		} else {
+		  alert('Your browser does not support the HTML5 FileReader.');
+		}
+	}
+	function handleResetButton(drawer){
+		//Change the selected region(increment by one)
+		drawer.changeSelectedRegion(++drawer.selected_region);
+	}
+	function addEventHandler(obj, evt, handler) {
+		if(obj.addEventListener) {
+			// W3C method
+			obj.addEventListener(evt, handler, false);
+		} else if(obj.attachEvent) {
+			// IE method.
+			obj.attachEvent('on'+evt, handler);
+		} else {
+			// Old school method.
+			obj['on'+evt] = handler;
+		}
+	}
+	
+	
 	function try_load_meta()
 	{
 		// loading metapixels is broken now, keep this for later
