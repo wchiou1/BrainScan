@@ -18,7 +18,7 @@
 
 
 
-function MagicMain(brain_pattern,regions)
+function MagicMain(brain_pattern,regions,chemdata)
 {
 	var
     /** @const */
@@ -65,7 +65,7 @@ function MagicMain(brain_pattern,regions)
 		loaded = false,
 
 		life = new LifeUniverse(),
-		drawer = new LifeCanvasDrawer(life,brain_pattern,regions),
+		drawer = new LifeCanvasDrawer(life,brain_pattern,regions,chemdata),
 
 		// example setups which are run at startup
 		// loaded from examples/
@@ -73,9 +73,13 @@ function MagicMain(brain_pattern,regions)
 		examples = (
 			"primer,1"
 		).split("|");
-
+		
 		//Setup the 4d array which will contain what regions are where
 		drawer.setupRegions(brain_pattern,regions);
+		//Use the averages from the drawer to create the buttons
+		EventsInit();
+		//Now that the buttons are created, load the lookup table(drawer will automatically load the buttons afterward)
+		drawer.loadLookupTable();
 	/** @type {function(function())} */
 	var nextFrame =
 		window.requestAnimationFrame ||
@@ -105,6 +109,7 @@ function MagicMain(brain_pattern,regions)
 	init_ui();
 
 	drawer.set_size(window.innerWidth-2, window.innerHeight-2);
+	drawer.set_overlay(150,150);
 	reset_settings();
 
 
@@ -213,15 +218,20 @@ function MagicMain(brain_pattern,regions)
 		max_fps = +parameters["fps"];
 	}
 
-	EventsInit();
+	
 
 	//Functions
 
 	function EventsInit(){
 		//Get the averages from the drawer
-		console.log("Chicken");
-		console.log(drawer.region_averages.length);
+		console.log("Loading "+drawer.region_averages.length+" regions");
 		
+		var drop_down = document.getElementById("model-changer");
+		addEventHandler(drop_down,'click',function(){handleDropdown();});
+		addEventHandler(document.getElementById("star"),'click',function(){changeModel(drawer,"Star");});
+		addEventHandler(document.getElementById("bars"),'click',function(){changeModel(drawer,"Bars");});
+		addEventHandler(document.getElementById("spatial"),'click',function(){changeModel(drawer,"Spatial");});
+	
 		//Iterate through them(130)
 		for(var i=0;i<drawer.region_averages.length;i++){
 			//First check if the average even exists
@@ -230,10 +240,11 @@ function MagicMain(brain_pattern,regions)
 				div.className="button";
 				div.id="button"+(i+1);
 				document.getElementById("buttons").appendChild(div);
-				console.log(i+1);
 				let temp_var = i;
-				addEventHandler(div,'click',function(){handleResetButton(drawer,temp_var+1);});
+				addEventHandler(div,'click',function(){changeRegion(drawer,temp_var+1);});
 			}
+			else
+				console.log("No average found for region "+(i+1));
 		}
 
 		function cancel(e) {
@@ -241,7 +252,26 @@ function MagicMain(brain_pattern,regions)
 		}
 		
 	}
-	function handleResetButton(drawer,region_num){
+	function changeModel(drawer,model){
+		console.log(drawer);
+		drawer.changeModel(model);
+		hideDropdown();
+	}
+	
+	function hideDropdown(){
+		var dropdowns = document.getElementsByClassName("dropdown-content");
+		var i;
+		for (i = 0; i < dropdowns.length; i++) {
+			var openDropdown = dropdowns[i];
+			if (openDropdown.classList.contains('show')) {
+				openDropdown.classList.remove('show');
+			}
+		}
+	}
+	function handleDropdown(){
+		document.getElementById("myDropdown").classList.toggle("show");
+	}
+	function changeRegion(drawer,region_num){
 		drawer.changeSelectedRegion(region_num);
 	}
 	function addEventHandler(obj, evt, handler) {
@@ -363,6 +393,9 @@ function MagicMain(brain_pattern,regions)
 
 		drawer.canvas.onmousedown = function(e)
 		{
+			hideDropdown();
+			
+			
 			if(e.which === 3 || e.which === 2)
 			{
 				var coords = drawer.pixel2cell(e.clientX, e.clientY);
@@ -723,8 +756,6 @@ function MagicMain(brain_pattern,regions)
 
     function reset_settings()
     {
-        drawer.background_color = "#cccccc";
-        drawer.cell_color = "#000000";
 
         drawer.border_width = DEFAULT_BORDER;
         drawer.cell_width = 2;

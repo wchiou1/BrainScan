@@ -1,7 +1,7 @@
 "use strict";
 
 /** @constructor */
-function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
+function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions,arg_chemdata)
 {
 	
     var
@@ -16,7 +16,11 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 
         // canvas contexts
         canvas,
+		iconcanvas = document.getElementById("iconcanvas"),
+		overlaycanvas = document.getElementById("overlaycanvas"),
         context,
+		iconcontext = iconcanvas.getContext("2d"),
+		overlaycontext = overlaycanvas.getContext("2d"),
 
         image_data,
         image_data_data,
@@ -32,19 +36,26 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 		node = arg_life,
 		brain_pattern=arg_brain_pattern,
 		regions=arg_regions,
+		chemdata=arg_chemdata,
+		lookup = {},
 
         drawer = this;
 
-    this.cell_color = null;
-	this.selected_color = "#ffffff";
-    this.background_color = null;
+	this.model="Star";
+    this.cell_color = "#634636";
+	this.selected_color = "#A5755A";
+    this.background_color = "#cccccc";
+	this.chem_colors = ["#fb8072","#80b1d3","#fdb462","#ffed6f","#bc80bd"];
 	this.selected_region=1;
 	this.region_averages = new Array(130);
+	this.corrected_coords = new Array(130);
+	this.chem_icons = new Array(130);//This contains the currently generated icons in DATAURL format(To be used when we want to change icons)
+	this.chem_regions = new Array(130);//Contains chem data based on region
+	//Icons will only be changed then the age range changes, otherwise all icons are stored in the chem_icons array for quick changing
 
     // given as ratio of cell size
     this.border_width = 0;
-
-
+	
     this.init = init;
     this.redraw = redraw;
     this.move = move;
@@ -58,12 +69,62 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
     this.pixel2cell = pixel2cell;
 	this.setupRegions = setupRegions;
 	this.changeSelectedRegion=changeSelectedRegion;
+	this.loadLookupTable=loadLookupTable;
+	this.set_overlay=set_overlay;
+	this.changeModel=changeModel;
 	
-	
+	function readFile(directory){
+		$.ajax({
+		type:    "GET",
+		url:     directory,
+		success: function(text) {		
+				var lines=text.split('\n');
+				//we want to create a hashtable which gives us the region number when given a string
+				for(var i=0;i<lines.length;i++){
+					var parts = lines[i].split('\t');
+					lookup[parts[1].replace("_"," ")] = parseInt(parts[0]);
+				}
+				console.log("Reading done");
+				setupRegionShapes();
+				
+		},
+		error:   function() {
+			// An error occurred
+			alert("cannot read files from server");
+		}
+		});
+	}
+	//Takes in the name of the model(same as the string in the drop-down)
+	function changeModel(model){
+		console.log("Model changed to "+model);
+		drawer.model=model;
+		//Change the string in the model-changer
+		var model_changer = document.getElementById("model-changer");
+		model_changer.innerText = model;
+		//Replace all the button dataurls with the appropriate icons
+		updateButtonIcons();
+		drawer.redraw();
+	}
+	function updateButtonIcons(){
+		var buttons = document.getElementById("buttons").childNodes;
+		for(var i=0;i<buttons.length;i++){
+			//Get the element ids
+			var region = parseInt(buttons[i].id.split("button")[1]);
+			if(typeof drawer.chem_icons[region-1][drawer.model] !== 'undefined'){
+				var current_button = buttons[i];
+				current_button.style.backgroundImage = 'url(' + drawer.chem_icons[region-1][drawer.model] + ')';
+			}
+			else{
+				console.log("Model "+drawer.model+" does not have an icon!");
+				break;
+			}
+		}
+	}
 	function changeSelectedRegion(regionNum){
 		drawer.selected_region=regionNum;
-		console.log(regionNum);
-		console.log(drawer.region_averages[regionNum-1]);
+		//console.log(regionNum);
+		//console.log(drawer.region_averages[regionNum-1]);
+		
 		drawer.redraw();
 	}
 	
@@ -92,9 +153,316 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 		for(var i=0;i<130;i++){
 			drawer.region_averages[i]=getRegionAverage(i+1);
 		}
-		//Testing getting regions from a coordinates
-		console.log(brain_regions.get(100,100).includes(63));
+		
+		//Let's calculate the corrected 
+		setupCorrectedCoords();
 	}
+	//Greedy algorithm which ensures that all buttons do not touch
+	function setupCorrectedCoords(){
+		//We will need a hashtable
+		var usedCoords = {};
+		for(var i=0;i<130;i++){
+			//make sure that we actually have an average
+			if(!isNaN(drawer.region_averages[i].x)||!isNaN(drawer.region_averages[i].y)){
+				//Calculate the corrected coordinates
+				var tempx = Math.floor(drawer.region_averages[i].x/8);
+				var tempy = Math.floor(drawer.region_averages[i].y/8);
+				//Check if this slot has been used
+				if (hitCoord(usedCoords,tempx,tempy,i+1)){
+					//It hit, we gotta check surrounding coords now for an empty slot
+					if(!hitCoord(usedCoords,tempx-1,tempy,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx+1,tempy,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx,tempy-1,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx,tempy+1,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx-1,tempy-1,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx+1,tempy-1,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx-1,tempy+1,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx+1,tempy+1,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx-2,tempy,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx+2,tempy,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx,tempy-2,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx,tempy+2,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx-2,tempy-2,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx+2,tempy-2,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx-2,tempy+2,i+1))//If it misses, continue
+						continue;
+					if(!hitCoord(usedCoords,tempx+2,tempy+2,i+1))//If it misses, continue
+						continue;
+					console.log("Warning, all aux slots hit, unable to allocate location for region "+(i+1));
+				}
+			}
+		}
+	}
+	//Returns if the coords resulted in a hit
+	function hitCoord(usedCoords,x,y,region){
+		if (typeof usedCoords[""+x+" "+y] == 'undefined'){
+			//The slot is free! Let's put the region number in it
+			usedCoords[""+x+" "+y] = region;
+			drawer.corrected_coords[region-1] = {x:(x*8+4), y:(y*8+4)};
+			//console.log("Region "+region+" put in slot "+x+","+y);
+			return false;//It missed
+		}
+		//else
+			//console.log("Oh no! Slot used up by region "+usedCoords[""+x+" "+y]);
+		return true;//It hit(this is bad)
+	}
+	function loadLookupTable(){
+		console.log(chemdata);
+		readFile("data/JhuMniSSTypeIILabelLookupTable_edited.txt");
+	}
+	function setupRegionShapes(){
+		//Let's create shapes and assign them to the appropriate div
+		//Let's make sure this thing works
+		console.log(lookup);
+		//We want there to be objects in the chemregions array
+		initChemRegions();
+		
+		//Let's get the ranges for all the possible chemicals(just the first subject)
+		var ranges = {};
+		//These ranges will be used for all icons
+		//Start by iterating through all sheet types
+		for(var i=0;i<5;i++){
+			//Let's get the sheet name
+			var sheetName = chemdata.SheetNames[i];
+			ranges[sheetName] = getRange(sheetName);
+			getChemValues(sheetName);
+			
+		}
+		console.log(ranges);
+		console.log(drawer.chem_regions);
+		//We will store the data in a 130 size array, each will be an object which contains the values for each chemical
+		
+		//Set all the backgrounds to a pentagon
+		var buttons = document.getElementById("buttons").childNodes;
+		for(var i=0;i<buttons.length;i++){
+			//Draw the pentagon to the iconcanvas
+			iconcanvas.width = 112
+			iconcanvas.height = 112;
+			iconcontext.clearRect(0, 0, 112, 112);
+			//iconcontext.drawImage(pentaCanvas,0 , 0, 112, 112, 0, 0, 112, 112);
+			
+			//Get the element ids
+			var region = parseInt(buttons[i].id.split("button")[1]);
+			//We have the region id, use that to get the chemical values
+			var r_data = drawer.chem_regions[region-1];
+			//Calculate the ratios, inserting zeros for null data
+			var ratios = new Array(5);
+			for(var j=0;j<5;j++){
+				var sheetName = chemdata.SheetNames[j];
+				var c_data = r_data[sheetName];
+				if(c_data !== 'no data'&&c_data !== "<Min#"){
+					ratios[j] = (c_data-ranges[sheetName].min)/(ranges[sheetName].max-ranges[sheetName].min);
+				}
+				else{
+					ratios[j] = 0;
+				}
+			}
+			//Draw the pentagon stuffs
+			drawPentagon(iconcanvas,iconcontext,52,-1/2*Math.PI,112,'#99ff99','#2F4F4F',ratios);
+			
+			//Put them in the icons array
+			var dataURL = iconcanvas.toDataURL();
+			drawer.chem_icons[region-1]["Star"] = dataURL;
+			
+			iconcanvas.width = 112
+			iconcanvas.height = 112;
+			iconcontext.clearRect(0, 0, 112, 112);
+			
+			drawBars(iconcanvas,iconcontext,112,'#2F4F4F',ratios);
+			//Put them in the icons array
+			var dataURL = iconcanvas.toDataURL();
+			drawer.chem_icons[region-1]["Bars"] = dataURL;
+		}
+		
+		updateButtonIcons();
+		
+	}
+	function initChemRegions(){
+		for(var i=0;i<drawer.chem_regions.length;i++)
+			drawer.chem_regions[i]={};
+		for(var i=0;i<drawer.chem_icons.length;i++)
+			drawer.chem_icons[i]={};
+	}
+	//Given a number, converts from numeric-base10 to alpha-base26
+	function numToAlpha(a) {
+		var alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		// First figure out how many digits there are.
+		var c = 0;
+		var x = 1;      
+		while (a >= x) {
+			c++;
+			a -= x;
+			x *= 26;
+		}
+
+		// Now you can do normal base conversion.
+		var s = "";
+		for (var i = 0; i < c; i++) {
+			s = alpha.charAt(a % 26) + s;
+			a = Math.floor(a/26);
+		}
+
+		return s;
+	}
+	
+	//Given a string of letters, converts from alpha-base26 to numeric-base10
+	function alphaToNum(string){
+		var total = 0;
+		for(var i=0;i<string.length;i++){
+			var value = string.charCodeAt(i)-64;//Value
+			total = total + value*26;
+		}
+		return total;
+	}
+	
+	//Populates the chem_regions array with appropriate objects
+	function getChemValues(sheetName){
+		//Get the sheetnames
+		var sheet = chemdata.Sheets[sheetName];
+		//Gonna hardcode the number of columns
+		for(var i=2;i<=108;i++){
+			var column = numToAlpha(i);
+			var title = sheet[column+"1"].w;
+			var value = sheet[column+"2"].w;
+			drawer.chem_regions[lookup[title]-1]["region"] = title;
+			if(value !== 'no data'&&value !== "<Min#"){
+				var num_value = parseFloat(value);
+				drawer.chem_regions[lookup[title]-1][sheetName] = num_value;
+			}
+			else{
+				drawer.chem_regions[lookup[title]-1][sheetName] = value;
+			}
+		}
+	}
+	
+	//Given a sheetname, returns the lowest and highest values in an object
+	function getRange(sheetName){
+		//Get the sheet
+		var sheet = chemdata.Sheets[sheetName];
+		var min = 10000000;
+		var max = -1;
+		//Gonna hardcode the number of columns
+		//console.log(sheet);
+		for(var i=2;i<=108;i++){
+			var column = numToAlpha(i);
+			var value = sheet[column+"2"].w;
+			if(value !== 'no data'&&value !== "<Min#"){
+				var num_value = parseFloat(value);
+				if(num_value>max)
+					max = num_value;
+				if(num_value<min)
+					min = num_value;
+			}
+			else{
+				//console.log("Encountered unparsable data from sheet "+sheetName+" column "+column+"2");
+			}
+		}
+		console.log(""+sheetName+":("+min+","+max+")");
+		return {min:min, max:max};
+	}
+	
+	//Draws the bar graph thingy
+	function drawBars(canvas,ctx,canvasw,bordercolor,data){
+		//Let's start by drawing the middle divider
+		ctx.fillStyle = bordercolor;
+		var middle_length = 80;
+		var bar_length = canvasw/2-6;
+		var bar_width = 16;
+		ctx.fillRect(canvasw/2-3,canvasw/2-middle_length/2,6,middle_length);
+
+		//Draw the rectangles on the left first
+		ctx.fillStyle = drawer.chem_colors[0];
+		ctx.fillRect(canvasw/2-2-data[0]*bar_length,canvasw/2-1.5*bar_width,data[0]*bar_length,bar_width);
+		ctx.rect(canvasw/2-2-data[0]*bar_length,canvasw/2-1.5*bar_width,data[0]*bar_length,bar_width);
+		
+		ctx.fillStyle = drawer.chem_colors[1];
+		ctx.fillRect(canvasw/2-2-data[1]*bar_length,canvasw/2-.5*bar_width,data[1]*bar_length,bar_width);
+		ctx.rect(canvasw/2-2-data[1]*bar_length,canvasw/2-.5*bar_width,data[1]*bar_length,bar_width);
+		
+		ctx.fillStyle = drawer.chem_colors[2];
+		ctx.fillRect(canvasw/2-2-data[2]*bar_length,canvasw/2+.5*bar_width,data[2]*bar_length,bar_width);
+		ctx.rect(canvasw/2-2-data[2]*bar_length,canvasw/2+.5*bar_width,data[2]*bar_length,bar_width);
+		
+		//Draw the rectangles on the right side
+		ctx.fillStyle = drawer.chem_colors[3];
+		ctx.fillRect(canvasw/2+2,canvasw/2-bar_width,data[3]*bar_length,bar_width);
+		ctx.rect(canvasw/2+2,canvasw/2-bar_width,data[3]*bar_length,bar_width);
+		
+		ctx.fillStyle = drawer.chem_colors[4];
+		ctx.fillRect(canvasw/2+2,canvasw/2,data[4]*bar_length,bar_width);
+		ctx.rect(canvasw/2+2,canvasw/2,data[4]*bar_length,bar_width);
+		
+		
+		ctx.strokeStyle = bordercolor;
+		ctx.stroke();
+	}
+	
+	//Draws a pentagon on the selected canvas
+	function drawPentagon(pentaCanvas,pent_ctx,size,aoffset,canvasw,fillcolor,bordercolor,data){
+		//We need angular coordinates, let's get some trig in here
+		var pie = Math.PI;
+		var offset = 4;
+		
+		//Draw the circles at the corners
+		for(var i=0;i<5;i++){
+			pent_ctx.fillStyle = drawer.chem_colors[i];
+			pent_ctx.beginPath();
+			pent_ctx.arc(size*Math.cos(2/5*pie*i+aoffset)+canvasw/2,size*Math.sin(2/5*pie*i+aoffset)+canvasw/2+offset,6,0,2*Math.PI);
+			pent_ctx.closePath();
+			pent_ctx.fill();
+		}
+		
+		//Draw the shape first
+		pent_ctx.beginPath();
+		pent_ctx.moveTo(data[0]*size*Math.cos(0+aoffset)+canvasw/2,data[0]*size*Math.sin(0+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(data[1]*size*Math.cos(2/5*pie+aoffset)+canvasw/2,data[1]*size*Math.sin(2/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(data[2]*size*Math.cos(4/5*pie+aoffset)+canvasw/2,data[2]*size*Math.sin(4/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(data[3]*size*Math.cos(6/5*pie+aoffset)+canvasw/2,data[3]*size*Math.sin(6/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(data[4]*size*Math.cos(8/5*pie+aoffset)+canvasw/2,data[4]*size*Math.sin(8/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(data[0]*size*Math.cos(0+aoffset)+canvasw/2,data[0]*size*Math.sin(0+aoffset)+canvasw/2+offset);
+		pent_ctx.closePath();
+		pent_ctx.fillStyle = fillcolor;
+		pent_ctx.fill();
+		
+		pent_ctx.strokeStyle = bordercolor;
+		pent_ctx.stroke();//Adds a border(not actually sure how to clear the path to prevent this...)
+		
+		
+		//Make the guidelines
+		pent_ctx.moveTo(canvasw/2,canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(0+aoffset)+canvasw/2,size*Math.sin(0+aoffset)+canvasw/2+offset);
+		pent_ctx.moveTo(canvasw/2,canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(2/5*pie+aoffset)+canvasw/2,size*Math.sin(2/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.moveTo(canvasw/2,canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(4/5*pie+aoffset)+canvasw/2,size*Math.sin(4/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.moveTo(canvasw/2,canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(6/5*pie+aoffset)+canvasw/2,size*Math.sin(6/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.moveTo(canvasw/2,canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(8/5*pie+aoffset)+canvasw/2,size*Math.sin(8/5*pie+aoffset)+canvasw/2+offset);
+		//Draw the pentagon outline
+		pent_ctx.moveTo(size*Math.cos(0+aoffset)+canvasw/2,size*Math.sin(0+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(2/5*pie+aoffset)+canvasw/2,size*Math.sin(2/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(4/5*pie+aoffset)+canvasw/2,size*Math.sin(4/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(6/5*pie+aoffset)+canvasw/2,size*Math.sin(6/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(8/5*pie+aoffset)+canvasw/2,size*Math.sin(8/5*pie+aoffset)+canvasw/2+offset);
+		pent_ctx.lineTo(size*Math.cos(0+aoffset)+canvasw/2,size*Math.sin(0+aoffset)+canvasw/2+offset);
+		pent_ctx.stroke();
+	}
+	
 	//Given a region number, returns a coordinate object which contains x and y
 	function getRegionAverage(regionNum){
 		var xTotal=0;
@@ -150,6 +518,12 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
             }
         }
 		
+    }
+	
+	function set_overlay(width, height)
+    {
+		overlaycanvas.width = width;
+		overlaycanvas.height = height;
     }
 
     function draw_node(node, size, left, top)
@@ -249,7 +623,7 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 
     function redraw()
     {
-		console.log(drawer.selected_region);
+		//console.log(drawer.selected_region);
         var bg_color_rgb = color2rgb(drawer.background_color);
         var bg_color_int = bg_color_rgb.r | bg_color_rgb.g << 8 | bg_color_rgb.b << 16 | 0xFF << 24;
 
@@ -265,6 +639,7 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
             image_data_data[i] = bg_color_int;
         }
 		
+		
 		//Draw a slice of the brain using brain_pattern
 		//first get the halfway point for the first dimension.
 		for(var i=0; i<brain_pattern.shape[2]; ++i) {
@@ -279,24 +654,49 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions)
 				}
 			}
 		}
-		//Move the button to average location
+		
 		
 		updateButtonLocs();
 		
 		context.putImageData(image_data, 0, 0);
+		
+		//We need to write the text after the image is drawn or out text will be covered
+		writeRegionInfo();
+		
+		
+		
+		
     }
 	
+	//Uses the chem_regions array to display selected info
+	function writeRegionInfo(){
+		//Clear the canvas first
+		overlaycontext.clearRect(0,0,overlaycanvas.width,overlaycanvas.height);
+		var r_data = drawer.chem_regions[drawer.selected_region-1];
+		//Write out the region name first
+		overlaycontext.font = "14px Arial";
+		overlaycontext.fillText("Region: "+r_data.region,5,20);
+		//Write out the detailed values
+		for(var i=0;i<5;i++){
+			var sheetName = chemdata.SheetNames[i];
+			overlaycontext.fillStyle=drawer.chem_colors[i];
+			overlaycontext.fillRect(3,20*(i+1)+7,144,16);
+			overlaycontext.fillStyle = '#000000';
+			overlaycontext.fillText(sheetName+": "+r_data[sheetName],5,20*(i+2));
+		}
+	}
+	
 	function updateButtonLocs(){
-		
 		//Iterate through all the buttons?
 		var buttons = document.getElementById("buttons").childNodes;
 		for(var i=0;i<buttons.length;i++){
 			//Get the element ids
-			var but_location = drawer.region_averages[parseInt(buttons[i].id.split("button")[1])-1];
+			var but_location = drawer.corrected_coords[parseInt(buttons[i].id.split("button")[1])-1];
 			var current_button = buttons[i];
-			current_button.style.left = (but_location.x*drawer.cell_width + canvas_offset_x)+"px";
-			current_button.style.top = (but_location.y*drawer.cell_width + canvas_offset_y)+"px";
-			
+			current_button.style.left = (but_location.x*drawer.cell_width + canvas_offset_x - drawer.cell_width*3)+"px";
+			current_button.style.top = (but_location.y*drawer.cell_width + canvas_offset_y - drawer.cell_width*3)+"px";
+			current_button.style.width = (drawer.cell_width*7)+"px";
+			current_button.style.height = (drawer.cell_width*7)+"px";
 		}
 	}
 
