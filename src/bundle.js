@@ -1310,6 +1310,10 @@ var regions = undefined
 var chemdata = undefined
 class Main {
 	constructor() {//This is the same as onload
+	
+		
+	
+	
 		var nifti = require('nifti-js')
 		var ndarray = require('ndarray')
 		var io = require('pex-io')
