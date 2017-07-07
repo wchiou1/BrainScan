@@ -412,12 +412,84 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions,arg_chemdata)
 				var dataURL = iconcanvas.toDataURL();
 				drawer.chem_icons[region-1][rangeNum]["Spatial"] = dataURL;
 				
+				//Creating the spatial icons
+				iconcanvas.width = 112
+				iconcanvas.height = 112;
+				iconcontext.clearRect(0, 0, 112, 112);
+				
+				drawSBars(iconcanvas,iconcontext,112,'#2F4F4F',ratios);
+				//Put them in the icons array
+				var dataURL = iconcanvas.toDataURL();
+				drawer.chem_icons[region-1][rangeNum]["Staggered Bars"] = dataURL;
+				
 			}
 		}
 		updateButtonIcons();
 		drawer.redraw();
 		writeRegionInfo();
 	}
+	//Draws the staggered bars
+	function drawSBars(canvas,ctx,canvasw,bordercolor,data){
+		//Let's start by drawing the bottom line
+		ctx.fillStyle = bordercolor;
+		var axis_length = 100;
+		var axis_width = 8;
+		var axis_x = (canvasw-axis_length)/2;
+		var axis_y = canvasw-8;
+		var max_bar_length = canvasw-axis_width;
+		var bar_ratio = 1.5;
+		ctx.fillRect(axis_x,axis_y,axis_length,axis_width);
+		
+		//First we need to draw the LARGEST ratio and work backwards
+		//Or... we could sort some indices using some magic
+		var len = data.length;
+		var indices = new Array(len);
+		for (var i = 0; i < len; ++i) indices[i] = i;
+		indices.sort(function (a, b) { return data[a] < data[b] ? -1 : data[a] > data[b] ? 1 : a < b ? -1 : 1; });
+		
+		for(var i=len-1;i>=0;i--){
+			//Get the index
+			var index = indices[i];
+			
+			//Get the data
+			var ratio = data[index];
+			
+			//Draw the thing using the index and the ratio
+			
+			ctx.beginPath();
+			ctx.fillStyle = drawer.chem_colors[index];
+			ctx.fillRect(axis_x+((axis_length*(len-bar_ratio)/(len-1)))*index/len,axis_y-ratio*max_bar_length,axis_length*bar_ratio/len,ratio*max_bar_length);
+			ctx.strokeStyle = bordercolor;
+			ctx.stroke();
+		}
+		
+		/*
+		//Draw the rectangles on the left first
+		ctx.fillStyle = drawer.chem_colors[0];
+		ctx.fillRect(canvasw/2-2-data[0]*bar_length,canvasw/2-1.5*bar_width,data[0]*bar_length,bar_width);
+		ctx.rect(canvasw/2-2-data[0]*bar_length,canvasw/2-1.5*bar_width,data[0]*bar_length,bar_width);
+		
+		ctx.fillStyle = drawer.chem_colors[1];
+		ctx.fillRect(canvasw/2-2-data[1]*bar_length,canvasw/2-.5*bar_width,data[1]*bar_length,bar_width);
+		ctx.rect(canvasw/2-2-data[1]*bar_length,canvasw/2-.5*bar_width,data[1]*bar_length,bar_width);
+		
+		ctx.fillStyle = drawer.chem_colors[2];
+		ctx.fillRect(canvasw/2-2-data[2]*bar_length,canvasw/2+.5*bar_width,data[2]*bar_length,bar_width);
+		ctx.rect(canvasw/2-2-data[2]*bar_length,canvasw/2+.5*bar_width,data[2]*bar_length,bar_width);
+		
+		//Draw the rectangles on the right side
+		ctx.fillStyle = drawer.chem_colors[3];
+		ctx.fillRect(canvasw/2+2,canvasw/2-bar_width,data[3]*bar_length,bar_width);
+		ctx.rect(canvasw/2+2,canvasw/2-bar_width,data[3]*bar_length,bar_width);
+		
+		ctx.fillStyle = drawer.chem_colors[4];
+		ctx.fillRect(canvasw/2+2,canvasw/2,data[4]*bar_length,bar_width);
+		ctx.rect(canvasw/2+2,canvasw/2,data[4]*bar_length,bar_width);
+		*/
+		
+		
+	}
+	
 	//Draws spatial icon
 	function drawSpatial(canvas,ctx,canvasw,bordercolor,data){
 		
@@ -830,7 +902,7 @@ function LifeCanvasDrawer(arg_life,arg_brain_pattern,arg_regions,arg_chemdata)
                 image_data_data[i] = 0xFF << 24;
             }
         }
-		
+		drawer.redraw();
     }
 	
 	function set_overlay(width, height)

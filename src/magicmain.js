@@ -118,11 +118,14 @@ function MagicMain(brain_pattern,regions,chemdata)
 		//Get the averages from the drawer
 		console.log("Loading "+drawer.region_averages.length+" regions");
 		
+		window.addEventListener('resize', function(){resizeMainCanvas();}, true);
+		
 		var drop_down = document.getElementById("model-changer");
 		addEventHandler(drop_down,'click',function(){handleDropdown();});
 		addEventHandler(document.getElementById("star"),'click',function(){changeModel(drawer,"Star");});
 		addEventHandler(document.getElementById("bars"),'click',function(){changeModel(drawer,"Bars");});
 		addEventHandler(document.getElementById("spatial"),'click',function(){changeModel(drawer,"Spatial");});
+		addEventHandler(document.getElementById("sbars"),'click',function(){changeModel(drawer,"Staggered Bars");});
 	
 		//Iterate through buttons(130)
 		for(var i=0;i<drawer.region_averages.length;i++){
@@ -141,8 +144,9 @@ function MagicMain(brain_pattern,regions,chemdata)
 		
 		//Setup events for the dual slider
 		var range0 = document.getElementById('range0');
-		addEventHandler(range0,'click',function(){rangeClick(drawer,0);});
+		addEventHandler(range0,'mouseup',function(){rangeClick(drawer,0);});
 		addEventHandler(range0,'mousemove',function(){rangeMD(drawer,0);});
+		addEventHandler(range0,'mouseleave',function(){rangeClick(drawer,0);});
 		/*var multiranges0 = document.getElementsByClassName('multirange range0');
 		console.log(multiranges0);
 		addEventHandler(multiranges0[0],'onmouseup',function(){rangeClick(drawer,0);});
@@ -151,14 +155,17 @@ function MagicMain(brain_pattern,regions,chemdata)
 		addEventHandler(multiranges0[1],'onmousemove',function(){rangeMD(drawer,0);});*/
 		
 		var range1 = document.getElementById('range1');
-		addEventHandler(range1,'click',function(){rangeClick(drawer,1);});
+		addEventHandler(range1,'mouseup',function(){rangeClick(drawer,1);});
 		addEventHandler(range1,'mousemove',function(){rangeMD(drawer,1);});
-		
+		addEventHandler(range1,'mouseleave',function(){rangeClick(drawer,1);});
 
 		function cancel(e) {
 		   e.preventDefault(); 
 		}
 		
+	}
+	function resizeMainCanvas(){
+		drawer.set_size(window.innerWidth-2, window.innerHeight-2);
 	}
 	function rangeMD(drawer,rangeId){
 		drawer.updateAgeRange(rangeId);
